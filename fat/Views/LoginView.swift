@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct LoginView: View {
-    @ObservedObject private var userManager = UserManager.shared
+    @EnvironmentObject var userManager: UserManager
     @State private var phone: String = ""
     @State private var code: String = ""
     @State private var isCodeSent = false
@@ -249,8 +249,12 @@ struct LoginView: View {
         
         Task {
             do {
+                print("🔵 开始登录请求...")
                 let loginResponse = try await NetworkService.shared.login(phone: phone, code: code)
+                print("✅ 登录请求成功，收到响应: userId=\(loginResponse.userId), token=\(loginResponse.accessToken.prefix(20))...")
+                
                 await MainActor.run {
+                    print("🔄 开始保存用户信息...")
                     // 保存用户信息，这会自动触发 RootView 的视图更新
                     userManager.saveUserInfo(
                         userId: loginResponse.userId,
@@ -259,13 +263,14 @@ struct LoginView: View {
                         refreshToken: loginResponse.refreshToken,
                         expireTime: loginResponse.expireTime
                     )
+                    print("✅ 用户信息已保存，当前 isLoggedIn = \(userManager.isLoggedIn)")
+                    // 注意：不要在这里清空输入框或重置状态
+                    // 因为视图会立即切换到 ContentViewButtons
+                    // 如果清空状态，可能会导致视图闪烁
                     isLoading = false
-                    // 清空输入框
-                    phone = ""
-                    code = ""
-                    isCodeSent = false
                 }
             } catch {
+                print("❌ 登录失败: \(error)")
                 await MainActor.run {
                     isLoading = false
                     // 友好的错误提示
@@ -273,11 +278,7 @@ struct LoginView: View {
                         switch networkError {
                         case .apiError(let message):
                             // 直接显示后端返回的错误信息
-                            if message.contains("验证码") || message.contains("无效") || message.contains("过期") || message.contains("不存在") {
-                                errorMessage = message
-                            } else {
-                                errorMessage = message.isEmpty ? "登录失败，请稍后重试" : message
-                            }
+                            errorMessage = message.isEmpty ? "登录失败，请稍后重试" : message
                         case .httpError(let code):
                             if code == 401 {
                                 errorMessage = "验证码错误或已过期"
@@ -292,6 +293,8 @@ struct LoginView: View {
                     } else {
                         errorMessage = "登录失败：\(error.localizedDescription)"
                     }
+                    // 登录失败时，不清空输入框，保持验证码输入状态
+                    // 但重置 isCodeSent 会导致回到手机号输入，所以不重置
                 }
             }
         }
@@ -311,4 +314,5 @@ struct LoginView: View {
 
 #Preview {
     LoginView()
+        .environmentObject(UserManager.shared)
 }

@@ -54,22 +54,39 @@ class NetworkService {
         let body = LoginRequest(phone: phone, code: code)
         request.httpBody = try JSONEncoder().encode(body)
         
+        print("📤 发送登录请求: \(url.absoluteString)")
+        if let bodyData = request.httpBody, let bodyString = String(data: bodyData, encoding: .utf8) {
+            print("📤 请求体: \(bodyString)")
+        }
+        
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ 无效的HTTP响应")
             throw NetworkError.invalidResponse
         }
         
+        print("📥 HTTP状态码: \(httpResponse.statusCode)")
+        if let responseString = String(data: data, encoding: .utf8) {
+            print("📥 响应数据: \(responseString)")
+        }
+        
         guard httpResponse.statusCode == 200 else {
+            print("❌ HTTP错误: \(httpResponse.statusCode)")
             throw NetworkError.httpError(httpResponse.statusCode)
         }
         
         let result = try JSONDecoder().decode(ApiResponse<LoginResponse>.self, from: data)
         
+        print("📥 解析结果: code=\(result.code ?? -1), success=\(result.success ?? false), msg=\(result.msg ?? "nil")")
+        
         if result.isSuccess, let loginResponse = result.data {
+            print("✅ 登录响应解析成功: userId=\(loginResponse.userId)")
             return loginResponse
         } else {
-            throw NetworkError.apiError(result.msg ?? "登录失败")
+            let errorMsg = result.msg ?? "登录失败"
+            print("❌ 登录失败: \(errorMsg)")
+            throw NetworkError.apiError(errorMsg)
         }
     }
     

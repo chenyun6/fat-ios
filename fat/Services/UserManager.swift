@@ -37,7 +37,6 @@ class UserManager: ObservableObject {
     
     // MARK: - 保存用户信息和Token
     func saveUserInfo(userId: Int64, phone: String, accessToken: String, refreshToken: String, expireTime: Int64) {
-        // 注意：此方法应在主线程调用
         // 先保存到UserDefaults
         UserDefaults.standard.set(String(userId), forKey: userIdKey)
         UserDefaults.standard.set(phone, forKey: phoneKey)
@@ -45,14 +44,54 @@ class UserManager: ObservableObject {
         UserDefaults.standard.set(refreshToken, forKey: refreshTokenKey)
         UserDefaults.standard.set(expireTime, forKey: expireTimeKey)
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastUsedTimeKey)
+        UserDefaults.standard.synchronize()
         
-        // 最后更新 @Published 属性，触发视图刷新
+        print("📝 UserDefaults 已保存: userId=\(userId), phone=\(phone)")
+        
+        // 更新 @Published 属性，触发视图刷新
+        // 注意：此方法应在主线程调用（已在 MainActor.run 中调用）
+        let oldIsLoggedIn = self.isLoggedIn
+        
+        // 先更新其他属性
         self.userId = userId
         self.phone = phone
-        self.isLoggedIn = true
         
-        // 手动触发 objectWillChange 确保视图更新
-        objectWillChange.send()
+        // 直接更新状态，无论之前是什么值
+        print("🔄 准备更新 isLoggedIn: \(oldIsLoggedIn) -> true")
+        print("📍 当前线程: \(Thread.isMainThread ? "主线程" : "后台线程")")
+        print("📍 UserManager 实例地址: \(Unmanaged.passUnretained(self).toOpaque())")
+        
+        // 如果之前已经是 true，先设为 false 触发一次变化
+        if oldIsLoggedIn {
+            print("⚠️ isLoggedIn 已经是 true，先设为 false 再设为 true")
+            self.isLoggedIn = false
+            print("📝 isLoggedIn 已设为 false")
+            // 立即触发一次更新
+            objectWillChange.send()
+            print("📢 objectWillChange 已发送 (false)")
+            
+            // 使用 Task 确保在下一个 runloop 中设置为 true
+            Task { @MainActor [weak self] in
+                guard let self = self else {
+                    print("❌ self 已被释放")
+                    return
+                }
+                print("📍 Task 中，当前线程: \(Thread.isMainThread ? "主线程" : "后台线程")")
+                print("📍 Task 中，UserManager 实例地址: \(Unmanaged.passUnretained(self).toOpaque())")
+                self.isLoggedIn = true
+                print("✅ isLoggedIn 已设置为 true (在 Task 中)")
+                // 再次触发更新，确保视图刷新
+                self.objectWillChange.send()
+                print("📢 objectWillChange 已发送 (true, 在 Task 中)")
+            }
+        } else {
+            // 如果之前是 false，直接设置为 true
+            self.isLoggedIn = true
+            print("✅ isLoggedIn 已设置为 true (直接设置)")
+            // 再次触发更新，确保视图刷新
+            objectWillChange.send()
+            print("📢 objectWillChange 已发送 (true, 直接设置)")
+        }
     }
     
     // MARK: - 更新Token

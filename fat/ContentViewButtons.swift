@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ContentViewButtons: View {
-    @ObservedObject private var userManager = UserManager.shared
+    @EnvironmentObject var userManager: UserManager
     @State private var selectedOption: WeightOption? = nil
     @State private var showFireworks = false
     @State private var fireworksId = UUID()
@@ -287,4 +287,5 @@ struct ContentViewButtons: View {
 
 #Preview {
     ContentViewButtons()
+        .environmentObject(UserManager.shared)
 }
