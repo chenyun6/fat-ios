@@ -87,8 +87,8 @@ struct LoginView: View {
                                 .keyboardType(.phonePad)
                                 .focused($focusedField, equals: .phone)
                                 .accentColor(.blue)
-                                .onChange(of: phone) { newValue in
-                                    phone = String(newValue.prefix(11)).filter { $0.isNumber }
+                                .onChange(of: phone) {
+                                    phone = String(phone.prefix(11)).filter { $0.isNumber }
                                 }
                         }
                         .padding(.horizontal, 20)
@@ -113,8 +113,8 @@ struct LoginView: View {
                                     .keyboardType(.numberPad)
                                     .focused($focusedField, equals: .code)
                                     .accentColor(.blue)
-                                    .onChange(of: code) { newValue in
-                                        code = String(newValue.prefix(6)).filter { $0.isNumber }
+                                    .onChange(of: code) {
+                                        code = String(code.prefix(6)).filter { $0.isNumber }
                                     }
                                 
                                 // 重新发送按钮
@@ -284,10 +284,10 @@ struct LoginView: View {
                                 countdown = seconds
                                 startCountdown()
                             }
-                        case .httpError(let code):
-                            if code == 429 {
+                        case .httpError(let statusCode):
+                            if statusCode == 429 {
                                 errorMessage = "请求过于频繁，请稍后再试"
-                            } else if code >= 500 {
+                            } else if statusCode >= 500 {
                                 errorMessage = "服务器错误，请稍后重试"
                             } else {
                                 errorMessage = "网络错误，请稍后重试"
@@ -382,3 +382,4 @@ struct LoginView: View {
     LoginView()
         .environmentObject(UserManager.shared)
 }
+
