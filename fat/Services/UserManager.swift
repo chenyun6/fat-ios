@@ -37,6 +37,11 @@ class UserManager: ObservableObject {
     
     // MARK: - 保存用户信息和Token
     func saveUserInfo(userId: Int64, phone: String, accessToken: String, refreshToken: String, expireTime: Int64) {
+        // 如果切换了用户，清除之前用户的本地记录状态
+        if let oldUserId = self.userId, oldUserId != userId {
+            RecordService.shared.clearTodayRecord(userId: oldUserId)
+        }
+        
         // 先保存到UserDefaults
         UserDefaults.standard.set(String(userId), forKey: userIdKey)
         UserDefaults.standard.set(phone, forKey: phoneKey)
@@ -144,6 +149,11 @@ class UserManager: ObservableObject {
     
     // MARK: - 登出
     func logout() {
+        // 清除当前用户的记录状态（在清空 userId 之前）
+        if let userId = self.userId {
+            RecordService.shared.clearTodayRecord(userId: userId)
+        }
+        
         self.userId = nil
         self.phone = nil
         self.isLoggedIn = false

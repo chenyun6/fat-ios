@@ -32,6 +32,7 @@ struct AppleStyleButton: View {
     let isSelected: Bool
     let action: () -> Void
     
+    @Environment(\.colorScheme) var colorScheme
     @State private var isPressed = false
     
     var body: some View {
@@ -93,10 +94,10 @@ struct AppleStyleButton: View {
                     )
             )
             .shadow(
-                color: isSelected ? color.opacity(0.2) : Color.black.opacity(0.05),
-                radius: isSelected ? 20 : 10,
+                color: isSelected ? color.opacity(0.2) : (colorScheme == .dark ? Color.clear : Color.black.opacity(0.05)),
+                radius: isSelected ? 20 : (colorScheme == .dark ? 0 : 10),
                 x: 0,
-                y: isSelected ? 10 : 5
+                y: isSelected ? 10 : (colorScheme == .dark ? 0 : 5)
             )
         }
         .buttonStyle(PlainButtonStyle())

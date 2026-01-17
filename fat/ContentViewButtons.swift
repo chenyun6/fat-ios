@@ -18,6 +18,7 @@ struct ContentViewButtons: View {
     @State private var showSuccessMessage = false
     @State private var hasRecordedToday = false
     @State private var todayRecordType: WeightOption? = nil
+    @State private var showLogoutAlert = false
     
     private let recordService = RecordService.shared
     
@@ -41,7 +42,7 @@ struct ContentViewButtons: View {
                         HStack {
                             Spacer()
                             Button(action: {
-                                userManager.logout()
+                                showLogoutAlert = true
                             }) {
                                 Image(systemName: "person.circle")
                                     .font(.system(size: 24))
@@ -50,6 +51,16 @@ struct ContentViewButtons: View {
                             .padding(.trailing, 32)
                         }
                         .padding(.top, 20)
+                        .alert("确认退出登录", isPresented: $showLogoutAlert) {
+                            Button("取消", role: .cancel) {
+                                showLogoutAlert = false
+                            }
+                            Button("退出", role: .destructive) {
+                                userManager.logout()
+                            }
+                        } message: {
+                            Text("退出后需要重新登录才能使用")
+                        }
                         
                         Text("今天")
                             .font(.system(size: 17, weight: .regular, design: .default))
@@ -160,12 +171,12 @@ struct ContentViewButtons: View {
                 
                 // 加载指示器
                 if isLoading {
-                    Color.black.opacity(0.3)
+                    Color(.systemBackground).opacity(0.8)
                         .ignoresSafeArea()
                     
                     ProgressView()
                         .scaleEffect(1.5)
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .progressViewStyle(CircularProgressViewStyle(tint: .primary))
                 }
             }
         }
@@ -176,9 +187,48 @@ struct ContentViewButtons: View {
     
     // MARK: - 检查今天是否已记录
     private func checkTodayRecord() {
-        recordService.checkAndClearIfNeeded()
-        hasRecordedToday = recordService.hasRecordedToday()
-        todayRecordType = recordService.getTodayRecordType()
+        guard let userId = userManager.userId else {
+            hasRecordedToday = false
+            todayRecordType = nil
+            return
+        }
+        
+        // 先检查本地缓存
+        recordService.checkAndClearIfNeeded(userId: userId)
+        let localHasRecord = recordService.hasRecordedToday(userId: userId)
+        let localRecordType = recordService.getTodayRecordType(userId: userId)
+        
+        // 先使用本地缓存状态（立即显示）
+        hasRecordedToday = localHasRecord
+        todayRecordType = localRecordType
+        
+        // 从后端查询今天的记录详情（同步状态）
+        Task {
+            do {
+                let todayRecord = try await NetworkService.shared.getTodayRecord()
+                await MainActor.run {
+                    if let record = todayRecord, let weightType = record.weightType {
+                        // 后端有记录，同步本地状态
+                        let recordType: WeightOption = weightType == 1 ? .fat : .notFat
+                        recordService.saveTodayRecord(type: recordType, userId: userId)
+                        hasRecordedToday = true
+                        todayRecordType = recordType
+                    } else if todayRecord == nil && localHasRecord {
+                        // 后端没有记录但本地有：清除本地状态
+                        recordService.clearTodayRecord(userId: userId)
+                        hasRecordedToday = false
+                        todayRecordType = nil
+                    } else if todayRecord == nil {
+                        // 后端没有记录，确保本地也没有
+                        hasRecordedToday = false
+                        todayRecordType = nil
+                    }
+                }
+            } catch {
+                // 网络请求失败，保持使用本地缓存
+                print("⚠️ 查询今天是否已记录失败: \(error)")
+            }
+        }
     }
     
     // MARK: - 选择处理
@@ -216,9 +266,11 @@ struct ContentViewButtons: View {
                     isLoading = false
                     
                     // 保存今天的记录
-                    recordService.saveTodayRecord(type: option)
-                    hasRecordedToday = true
-                    todayRecordType = option
+                    if let userId = userManager.userId {
+                        recordService.saveTodayRecord(type: option, userId: userId)
+                        hasRecordedToday = true
+                        todayRecordType = option
+                    }
                     
                     // 显示成功消息
                     successMessage = option == .fat ? "已记录：今天胖了" : "已记录：今天没胖"

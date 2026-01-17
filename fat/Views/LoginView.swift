@@ -9,6 +9,7 @@ import SwiftUI
 
 struct LoginView: View {
     @EnvironmentObject var userManager: UserManager
+    @Environment(\.colorScheme) var colorScheme
     @State private var phone: String = ""
     @State private var code: String = ""
     @State private var isCodeSent = false
@@ -24,16 +25,31 @@ struct LoginView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // 青春活力的渐变背景
-                LinearGradient(
-                    colors: [
-                        Color(red: 1.0, green: 0.95, blue: 0.9),
-                        Color(red: 0.95, green: 0.98, blue: 1.0),
-                        Color(red: 0.98, green: 0.95, blue: 1.0)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                // 根据系统模式调整的背景
+                Group {
+                    if colorScheme == .dark {
+                        // 深色模式：使用深色渐变
+                        LinearGradient(
+                            colors: [
+                                Color(.systemBackground),
+                                Color(.secondarySystemBackground)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    } else {
+                        // 浅色模式：使用浅色渐变
+                        LinearGradient(
+                            colors: [
+                                Color(red: 1.0, green: 0.95, blue: 0.9),
+                                Color(red: 0.95, green: 0.98, blue: 1.0),
+                                Color(red: 0.98, green: 0.95, blue: 1.0)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    }
+                }
                 .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
@@ -44,14 +60,14 @@ struct LoginView: View {
                         // 主标题 - Apple风格大标题
                         Text("今天你胖了吗？")
                             .font(.system(size: 48, weight: .bold, design: .rounded))
-                            .foregroundColor(.primary)
+                            .foregroundColor(Color(.label))
                             .multilineTextAlignment(.center)
                             .tracking(-0.5)  // 字间距微调
                         
                         // 副标题 - Apple风格副标题
                         Text("记录每一天的变化")
                             .font(.system(size: 17, weight: .regular, design: .default))
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color(.secondaryLabel))
                             .tracking(0.2)
                     }
                     .padding(.bottom, 60)
@@ -67,8 +83,10 @@ struct LoginView: View {
                             
                             TextField("手机号", text: $phone)
                                 .font(.system(size: 17, weight: .regular, design: .default))
+                                .foregroundColor(Color(.label))
                                 .keyboardType(.phonePad)
                                 .focused($focusedField, equals: .phone)
+                                .accentColor(.blue)
                                 .onChange(of: phone) { newValue in
                                     phone = String(newValue.prefix(11)).filter { $0.isNumber }
                                 }
@@ -77,8 +95,8 @@ struct LoginView: View {
                         .padding(.vertical, 16)
                         .background(
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.white.opacity(0.8))
-                                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                                .fill(Color(.secondarySystemBackground))
+                                .shadow(color: colorScheme == .dark ? Color.clear : Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                         )
                         
                         // 验证码输入（仅在发送后显示）
@@ -91,8 +109,10 @@ struct LoginView: View {
                                 
                                 TextField("验证码", text: $code)
                                     .font(.system(size: 17, weight: .regular, design: .default))
+                                    .foregroundColor(Color(.label))
                                     .keyboardType(.numberPad)
                                     .focused($focusedField, equals: .code)
+                                    .accentColor(.blue)
                                     .onChange(of: code) { newValue in
                                         code = String(newValue.prefix(6)).filter { $0.isNumber }
                                     }
@@ -112,19 +132,26 @@ struct LoginView: View {
                             .padding(.vertical, 16)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color.white.opacity(0.8))
-                                    .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                                    .fill(Color(.secondarySystemBackground))
+                                    .shadow(color: colorScheme == .dark ? Color.clear : Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                             )
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
                         
                         // 错误提示
                         if let errorMessage = errorMessage {
-                            Text(errorMessage)
-                                .font(.system(size: 15, weight: .regular, design: .default))
-                                .foregroundColor(.red)
-                                .padding(.top, 8)
-                                .transition(.opacity)
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.red)
+                                Text(errorMessage)
+                                    .font(.system(size: 15, weight: .medium, design: .default))
+                                    .foregroundColor(.red)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 4)
+                            .padding(.top, 8)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                         
                         // 主按钮 - 青春活力的渐变色
@@ -178,7 +205,7 @@ struct LoginView: View {
                     // 底部提示文字
                     Text("登录即表示同意使用服务")
                         .font(.system(size: 13, weight: .regular, design: .default))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color(.tertiaryLabel))
                         .padding(.bottom, 40)
                 }
             }
@@ -198,8 +225,23 @@ struct LoginView: View {
     
     // MARK: - 发送验证码
     private func sendCode() {
+        // 验证手机号格式
         guard phone.count == 11 else {
+            errorMessage = "请输入11位手机号"
+            return
+        }
+        
+        // 检查手机号格式（简单的中国手机号格式验证：1开头，第二位3-9）
+        guard phone.hasPrefix("1"), 
+              let secondChar = phone.dropFirst().first,
+              ("3"..."9").contains(secondChar) else {
             errorMessage = "请输入正确的手机号"
+            return
+        }
+        
+        // 检查是否在倒计时中
+        guard countdown == 0 else {
+            errorMessage = "请稍候再试（\(countdown)秒后可重新发送）"
             return
         }
         
@@ -215,6 +257,11 @@ struct LoginView: View {
                     countdown = 60
                     startCountdown()
                     focusedField = .code
+                    
+                    // 提示用户验证码已发送（测试期间固定为111111）
+                    #if DEBUG
+                    // 开发环境下提示固定验证码
+                    #endif
                 }
             } catch {
                 await MainActor.run {
@@ -223,9 +270,28 @@ struct LoginView: View {
                     if let networkError = error as? NetworkError {
                         switch networkError {
                         case .apiError(let message):
+                            // 直接显示后端返回的错误信息（如"发送过于频繁，请45秒后再试"）
                             errorMessage = message
+                            // 如果错误信息中包含秒数，尝试提取并设置倒计时
+                            // 例如："发送过于频繁，请45秒后再试"
+                            let pattern = #"请(\d+)秒后再试"#
+                            if let regex = try? NSRegularExpression(pattern: pattern),
+                               let match = regex.firstMatch(in: message, range: NSRange(message.startIndex..., in: message)),
+                               match.numberOfRanges > 1,
+                               let range = Range(match.range(at: 1), in: message),
+                               let seconds = Int(String(message[range])),
+                               seconds > 0 && seconds < 120 {
+                                countdown = seconds
+                                startCountdown()
+                            }
                         case .httpError(let code):
-                            errorMessage = "网络错误，请稍后重试"
+                            if code == 429 {
+                                errorMessage = "请求过于频繁，请稍后再试"
+                            } else if code >= 500 {
+                                errorMessage = "服务器错误，请稍后重试"
+                            } else {
+                                errorMessage = "网络错误，请稍后重试"
+                            }
                         default:
                             errorMessage = "发送失败，请稍后重试"
                         }

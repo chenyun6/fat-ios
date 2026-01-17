@@ -54,6 +54,14 @@ struct RefreshTokenRequest: Codable {
     let refreshToken: String
 }
 
+struct TodayRecordResponse: Codable {
+    let id: Int64?
+    let userId: Int64?
+    let weightType: Int?
+    let recordDate: String?
+    let createTime: String?
+}
+
 // MARK: - 用户信息
 struct UserInfo: Codable {
     let userId: Int64
