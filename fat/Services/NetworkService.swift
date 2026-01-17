@@ -11,7 +11,7 @@ class NetworkService {
     static let shared = NetworkService()
     
     // 后端API基础URL - 根据实际情况修改
-    private let baseURL = "http://localhost:8888/web/weight"
+    private let baseURL = "http://localhost:8888/app/weight"
     
     private init() {}
     

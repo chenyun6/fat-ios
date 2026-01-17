@@ -36,11 +36,11 @@ class UserManager: ObservableObject {
     }
     
     // MARK: - 保存用户信息和Token
+    @MainActor
     func saveUserInfo(userId: Int64, phone: String, accessToken: String, refreshToken: String, expireTime: Int64) {
-        // 如果切换了用户，清除之前用户的本地记录状态
-        if let oldUserId = self.userId, oldUserId != userId {
-            RecordService.shared.clearTodayRecord(userId: oldUserId)
-        }
+        print("📝 开始保存用户信息...")
+        print("📍 保存前 isLoggedIn = \(self.isLoggedIn)")
+        print("📍 UserManager 实例地址: \(Unmanaged.passUnretained(self).toOpaque())")
         
         // 先保存到UserDefaults
         UserDefaults.standard.set(String(userId), forKey: userIdKey)
@@ -52,50 +52,42 @@ class UserManager: ObservableObject {
         UserDefaults.standard.synchronize()
         
         print("📝 UserDefaults 已保存: userId=\(userId), phone=\(phone)")
+        print("📍 当前线程: \(Thread.isMainThread ? "主线程" : "后台线程")")
         
-        // 更新 @Published 属性，触发视图刷新
-        // 注意：此方法应在主线程调用（已在 MainActor.run 中调用）
-        let oldIsLoggedIn = self.isLoggedIn
-        
-        // 先更新其他属性
+        // 更新其他属性
         self.userId = userId
         self.phone = phone
         
-        // 直接更新状态，无论之前是什么值
-        print("🔄 准备更新 isLoggedIn: \(oldIsLoggedIn) -> true")
-        print("📍 当前线程: \(Thread.isMainThread ? "主线程" : "后台线程")")
-        print("📍 UserManager 实例地址: \(Unmanaged.passUnretained(self).toOpaque())")
+        // 更新登录状态 - 强制触发状态变化
+        let wasLoggedIn = self.isLoggedIn
+        print("📍 更新前状态: wasLoggedIn = \(wasLoggedIn)")
         
-        // 如果之前已经是 true，先设为 false 触发一次变化
-        if oldIsLoggedIn {
-            print("⚠️ isLoggedIn 已经是 true，先设为 false 再设为 true")
+        // 无论当前状态是什么，都先设为 false 再设为 true，确保状态变化被检测到
+        if wasLoggedIn {
+            print("🔄 当前已登录，先登出再登录以确保状态变化")
             self.isLoggedIn = false
-            print("📝 isLoggedIn 已设为 false")
             // 立即触发一次更新
             objectWillChange.send()
-            print("📢 objectWillChange 已发送 (false)")
-            
-            // 使用 Task 确保在下一个 runloop 中设置为 true
-            Task { @MainActor [weak self] in
-                guard let self = self else {
-                    print("❌ self 已被释放")
-                    return
-                }
-                print("📍 Task 中，当前线程: \(Thread.isMainThread ? "主线程" : "后台线程")")
-                print("📍 Task 中，UserManager 实例地址: \(Unmanaged.passUnretained(self).toOpaque())")
-                self.isLoggedIn = true
-                print("✅ isLoggedIn 已设置为 true (在 Task 中)")
-                // 再次触发更新，确保视图刷新
+            print("📢 已发送登出通知 (false)")
+        }
+        
+        // 立即设置为 true
+        self.isLoggedIn = true
+        print("✅ isLoggedIn 已设置为 true")
+        print("📍 更新后状态: isLoggedIn = \(self.isLoggedIn)")
+        
+        // 显式触发更新
+        objectWillChange.send()
+        print("📢 已发送 objectWillChange 通知 (true)")
+        
+        // 如果之前已经是 true，在下一个 runloop 中再次触发，确保视图更新
+        if wasLoggedIn {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                print("🔄 在下一个 runloop 中再次触发更新")
                 self.objectWillChange.send()
-                print("📢 objectWillChange 已发送 (true, 在 Task 中)")
+                print("📢 已发送 objectWillChange 通知 (延迟)")
             }
-        } else {
-            // 如果之前是 false，直接设置为 true
-            self.isLoggedIn = true
-            print("✅ isLoggedIn 已设置为 true (直接设置)")
-            // 再次触发更新，确保视图刷新
-            objectWillChange.send()
-            print("📢 objectWillChange 已发送 (true, 直接设置)")
         }
     }
     
@@ -149,11 +141,6 @@ class UserManager: ObservableObject {
     
     // MARK: - 登出
     func logout() {
-        // 清除当前用户的记录状态（在清空 userId 之前）
-        if let userId = self.userId {
-            RecordService.shared.clearTodayRecord(userId: userId)
-        }
-        
         self.userId = nil
         self.phone = nil
         self.isLoggedIn = false

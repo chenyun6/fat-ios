@@ -321,6 +321,8 @@ struct LoginView: View {
                 
                 await MainActor.run {
                     print("🔄 开始保存用户信息...")
+                    print("📍 保存前 isLoggedIn = \(userManager.isLoggedIn)")
+                    
                     // 保存用户信息，这会自动触发 RootView 的视图更新
                     userManager.saveUserInfo(
                         userId: loginResponse.userId,
@@ -329,7 +331,10 @@ struct LoginView: View {
                         refreshToken: loginResponse.refreshToken,
                         expireTime: loginResponse.expireTime
                     )
+                    
                     print("✅ 用户信息已保存，当前 isLoggedIn = \(userManager.isLoggedIn)")
+                    print("📍 保存后 isLoggedIn = \(userManager.isLoggedIn)")
+                    
                     // 注意：不要在这里清空输入框或重置状态
                     // 因为视图会立即切换到 ContentViewButtons
                     // 如果清空状态，可能会导致视图闪烁
