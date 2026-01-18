@@ -22,21 +22,21 @@ struct fatApp: App {
 }
 
 struct RootView: View {
-    @ObservedObject var userManager = UserManager.shared
-    @State private var viewId = UUID()
+    @ObservedObject private var userManager = UserManager.shared
+    @State private var isLoggedIn: Bool = false
     
     var body: some View {
-        let _ = print("🔄 RootView body 重新计算，userManager.isLoggedIn = \(userManager.isLoggedIn), viewId = \(viewId)")
+        let _ = print("🔄 RootView body 重新计算，isLoggedIn = \(isLoggedIn), userManager.isLoggedIn = \(userManager.isLoggedIn)")
         
-        ZStack {
-            if userManager.isLoggedIn {
+        return Group {
+            if isLoggedIn {
                 let _ = print("✅ RootView: 准备显示 ContentViewButtons")
                 ContentViewButtons()
-                    .id("ContentView-\(viewId)")
-                    .environmentObject(userManager)
+                    .id("ContentView")
+                    .environmentObject(UserManager.shared)
                     .transition(.opacity)
                     .onAppear {
-                        print("✅ ContentViewButtons 已显示")
+                        print("✅ ContentViewButtons 已显示，isLoggedIn = \(isLoggedIn)")
                         // 检查Token是否过期
                         if userManager.isTokenExpired() {
                             // Token过期，尝试刷新
@@ -48,23 +48,31 @@ struct RootView: View {
             } else {
                 let _ = print("📱 RootView: 准备显示 LoginView")
                 LoginView()
-                    .id("LoginView-\(viewId)")
-                    .environmentObject(userManager)
+                    .id("LoginView")
+                    .environmentObject(UserManager.shared)
                     .transition(.opacity)
                     .onAppear {
-                        print("📱 LoginView 已显示")
+                        print("📱 LoginView 已显示，isLoggedIn = \(isLoggedIn)")
                     }
             }
         }
-        .id("RootView-\(userManager.isLoggedIn)-\(viewId)")
-        .animation(.easeInOut(duration: 0.3), value: userManager.isLoggedIn)
-        .onChange(of: userManager.isLoggedIn) { oldValue, newValue in
-            print("🔄 RootView onChange: isLoggedIn 从 \(oldValue) 变为 \(newValue)")
-            viewId = UUID()
-            print("🔄 viewId 已更新为: \(viewId)")
+        .animation(.easeInOut(duration: 0.3), value: isLoggedIn)
+        .onAppear {
+            print("🎬 RootView onAppear，isLoggedIn = \(userManager.isLoggedIn)")
+            isLoggedIn = userManager.isLoggedIn
+        }
+        .onChange(of: userManager.isLoggedIn) { newValue in
+            print("🔄 onChange: userManager.isLoggedIn = \(newValue)")
+            isLoggedIn = newValue
         }
         .onReceive(userManager.$isLoggedIn) { newValue in
-            print("📡 RootView onReceive: isLoggedIn = \(newValue)")
+            print("📡 onReceive: userManager.isLoggedIn = \(newValue)")
+            isLoggedIn = newValue
+        }
+        .onReceive(userManager.objectWillChange) { _ in
+            print("📢 RootView 收到 objectWillChange 通知，当前 userManager.isLoggedIn = \(userManager.isLoggedIn)")
+            // 同步状态
+            isLoggedIn = userManager.isLoggedIn
         }
     }
     
