@@ -16,6 +16,7 @@ struct LoginView: View {
     @State private var countdown = 0
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var activeLegalDocument: LegalDocument?
     @FocusState private var focusedField: Field?
     
     enum Field {
@@ -202,16 +203,30 @@ struct LoginView: View {
                     
                     Spacer()
                     
-                    // 底部提示文字
-                    Text("登录即表示同意使用服务")
-                        .font(.system(size: 13, weight: .regular, design: .default))
-                        .foregroundColor(Color(.tertiaryLabel))
-                        .padding(.bottom, 40)
+                    VStack(spacing: 8) {
+                        Text("登录即表示你已阅读并同意")
+                            .font(.system(size: 13, weight: .regular, design: .default))
+                            .foregroundColor(Color(.tertiaryLabel))
+                        
+                        HStack(spacing: 4) {
+                            Button("《用户协议》") {
+                                activeLegalDocument = .terms
+                            }
+                            Button("《隐私政策》") {
+                                activeLegalDocument = .privacy
+                            }
+                        }
+                        .font(.system(size: 13, weight: .medium, design: .default))
+                    }
+                    .padding(.bottom, 32)
                 }
             }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isCodeSent)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: errorMessage)
+        .sheet(item: $activeLegalDocument) { document in
+            LegalDocumentView(document: document)
+        }
     }
     
     // MARK: - 是否可以继续
@@ -258,9 +273,9 @@ struct LoginView: View {
                     startCountdown()
                     focusedField = .code
                     
-                    // 提示用户验证码已发送（测试期间固定为111111）
+                    // 如需调试提示，可在 DEBUG 环境下补充额外文案
                     #if DEBUG
-                    // 开发环境下提示固定验证码
+                    // 开发环境占位
                     #endif
                 }
             } catch {
@@ -382,4 +397,3 @@ struct LoginView: View {
     LoginView()
         .environmentObject(UserManager.shared)
 }
-

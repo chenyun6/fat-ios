@@ -19,6 +19,8 @@ struct ContentViewButtons: View {
     @State private var hasRecordedToday = false
     @State private var todayRecordType: WeightOption? = nil
     @State private var showLogoutAlert = false
+    @State private var showAccountSheet = false
+    @State private var activeLegalDocument: LegalDocument?
     
     private let recordService = RecordService.shared
     
@@ -42,7 +44,7 @@ struct ContentViewButtons: View {
                         HStack {
                             Spacer()
                             Button(action: {
-                                showLogoutAlert = true
+                                showAccountSheet = true
                             }) {
                                 Image(systemName: "person.circle")
                                     .font(.system(size: 24))
@@ -51,16 +53,6 @@ struct ContentViewButtons: View {
                             .padding(.trailing, 32)
                         }
                         .padding(.top, 20)
-                        .alert("确认退出登录", isPresented: $showLogoutAlert) {
-                            Button("取消", role: .cancel) {
-                                showLogoutAlert = false
-                            }
-                            Button("退出", role: .destructive) {
-                                userManager.logout()
-                            }
-                        } message: {
-                            Text("退出后需要重新登录才能使用")
-                        }
                         
                         Text("今天")
                             .font(.system(size: 17, weight: .regular, design: .default))
@@ -182,6 +174,42 @@ struct ContentViewButtons: View {
         }
         .onAppear {
             checkTodayRecord()
+        }
+        .sheet(isPresented: $showAccountSheet) {
+            LegalCenterSheet(
+                onShowTerms: {
+                    showAccountSheet = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        activeLegalDocument = .terms
+                    }
+                },
+                onShowPrivacy: {
+                    showAccountSheet = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        activeLegalDocument = .privacy
+                    }
+                },
+                onLogout: {
+                    showAccountSheet = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        showLogoutAlert = true
+                    }
+                }
+            )
+            .presentationDetents([.medium, .large])
+        }
+        .sheet(item: $activeLegalDocument) { document in
+            LegalDocumentView(document: document)
+        }
+        .alert("确认退出登录", isPresented: $showLogoutAlert) {
+            Button("取消", role: .cancel) {
+                showLogoutAlert = false
+            }
+            Button("退出", role: .destructive) {
+                userManager.logout()
+            }
+        } message: {
+            Text("退出后需要重新登录才能使用")
         }
     }
     

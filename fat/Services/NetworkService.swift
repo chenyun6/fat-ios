@@ -10,8 +10,8 @@ import Foundation
 class NetworkService {
     static let shared = NetworkService()
     
-    // 后端API基础URL - 根据实际情况修改
-    private let baseURL = "http://localhost:8888/web/weight"
+    // 后端API基础URL 
+    private let baseURL = "https://sanzhong.online/app/weight"
     
     private init() {}
     
@@ -49,7 +49,7 @@ class NetworkService {
                 return message
             } else {
                 // 优先使用后端返回的错误信息
-                let errorMsg = result.msg ?? "发送验证码失败"
+                let errorMsg = Self.normalizedBackendMessage(result.msg ?? "发送验证码失败")
                 print("❌ 验证码发送失败: \(errorMsg)")
                 throw NetworkError.apiError(errorMsg)
             }
@@ -103,7 +103,7 @@ class NetworkService {
             print("✅ 登录响应解析成功: userId=\(loginResponse.userId)")
             return loginResponse
         } else {
-            let errorMsg = result.msg ?? "登录失败"
+            let errorMsg = Self.normalizedBackendMessage(result.msg ?? "登录失败")
             print("❌ 登录失败: \(errorMsg)")
             throw NetworkError.apiError(errorMsg)
         }
@@ -134,7 +134,7 @@ class NetworkService {
         if result.isSuccess, let loginResponse = result.data {
             return loginResponse
         } else {
-            throw NetworkError.apiError(result.msg ?? "刷新Token失败")
+            throw NetworkError.apiError(Self.normalizedBackendMessage(result.msg ?? "刷新Token失败"))
         }
     }
     
@@ -225,7 +225,7 @@ class NetworkService {
             UserManager.shared.updateLastUsedTime()
             return recordId
         } else {
-            throw NetworkError.apiError(result.msg ?? "创建记录失败")
+            throw NetworkError.apiError(Self.normalizedBackendMessage(result.msg ?? "创建记录失败"))
         }
     }
     
@@ -254,6 +254,17 @@ class NetworkService {
             refreshToken: loginResponse.refreshToken,
             expireTime: loginResponse.expireTime
         )
+    }
+    
+    private static func normalizedBackendMessage(_ message: String) -> String {
+        let trimmedMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        switch trimmedMessage {
+        case "", "common.system.error":
+            return "服务器开小差了，请稍后重试"
+        default:
+            return trimmedMessage
+        }
     }
 }
 

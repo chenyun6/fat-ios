@@ -1,6 +1,7 @@
 {
   "images" : [
     {
+      "filename" : "PixPin_2026-03-22_22-10-35.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -12,6 +13,7 @@
           "value" : "dark"
         }
       ],
+      "filename" : "PixPin_2026-03-22_22-10-35 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -23,6 +25,7 @@
           "value" : "tinted"
         }
       ],
+      "filename" : "PixPin_2026-03-22_22-10-35 2.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
