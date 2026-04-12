@@ -19,8 +19,8 @@ struct ApiResponse<T: Codable>: Codable {
         if let success = success {
             return success
         }
-        // 如果success为空，检查code是否为0（成功）
-        return code == 0 || code == 200
+        // 后端实际返回 code: 100 表示成功
+        return code == 0 || code == 100 || code == 200
     }
 }
 
@@ -66,4 +66,42 @@ struct TodayRecordResponse: Codable {
 struct UserInfo: Codable {
     let userId: Int64
     let phone: String
+    let hasPassword: Bool?
+}
+
+// MARK: - 体重记录列表响应
+struct WeightRecordListResponse: Codable {
+    let list: [WeightRecordItem]
+    let total: Int
+}
+
+struct WeightRecordItem: Codable {
+    let id: Int64?
+    let userId: Int64?
+    let weightType: Int?
+    let recordDate: String?
+    let createTime: String?
+}
+
+// MARK: - 密码登录请求
+struct PasswordLoginRequest: Codable {
+    let phone: String
+    let password: String
+}
+
+// MARK: - 设置密码请求
+struct SetPasswordRequest: Codable {
+    let password: String
+}
+
+// MARK: - 修改密码请求
+struct ChangePasswordRequest: Codable {
+    let oldPassword: String
+    let newPassword: String
+}
+
+// MARK: - 删除账号请求
+struct DeleteAccountRequest: Codable {
+    let verifyType: String  // "sms" 或 "password"
+    let code: String        // 验证码或密码
 }

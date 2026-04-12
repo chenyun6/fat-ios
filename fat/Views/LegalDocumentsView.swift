@@ -230,25 +230,89 @@ struct LegalCenterSheet: View {
     let onShowTerms: () -> Void
     let onShowPrivacy: () -> Void
     let onLogout: () -> Void
-    
+
+    @State private var userProfile: UserInfo?
+    @State private var showingAccountSettings = false
+
     var body: some View {
         NavigationStack {
             List {
+                // 用户信息卡片
+                Section("账号设置") {
+                    Button("账号与安全") {
+                        showingAccountSettings = true
+                    }
+                }
+
+                Section("账户信息") {
+                    if let profile = userProfile {
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.orange.opacity(0.8), Color.green.opacity(0.8)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 40, height: 40)
+                                .overlay(
+                                    Image(systemName: "person.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(.white)
+                                )
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("手机号：\(profile.phone)")
+                                    .font(.system(size: 15, weight: .medium))
+                                Text("ID：\(profile.userId)")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        HStack {
+                            Text("加载中...")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            ProgressView()
+                        }
+                    }
+                }
+
                 Section("协议与政策") {
                     Button("查看《用户协议》", action: onShowTerms)
                     Button("查看《隐私政策》", action: onShowPrivacy)
                 }
-                
+
                 Section("支持信息") {
                     Text("客服邮箱：\(AppReleaseInfo.supportEmail)")
                     Text("隐私邮箱：\(AppReleaseInfo.privacyEmail)")
                 }
-                
+
                 Section {
                     Button("退出登录", role: .destructive, action: onLogout)
                 }
             }
             .navigationTitle("账户与设置")
+        }
+        .task {
+            await loadUserProfile()
+        }
+        .sheet(isPresented: $showingAccountSettings) {
+            AccountSettingsView()
+        }
+    }
+
+    private func loadUserProfile() async {
+        do {
+            let profile = try await NetworkService.shared.getUserProfile()
+            await MainActor.run {
+                self.userProfile = profile
+            }
+        } catch {
+            // 加载失败不影响页面使用
+            print("⚠️ 获取用户信息失败: \(error)")
         }
     }
 }

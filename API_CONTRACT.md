@@ -1,0 +1,1 @@
+/Users/huyingjun/handsome/fatter-shared-docs/API_CONTRACT.md

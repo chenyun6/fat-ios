@@ -20,6 +20,7 @@ struct ContentViewButtons: View {
     @State private var todayRecordType: WeightOption? = nil
     @State private var showLogoutAlert = false
     @State private var showAccountSheet = false
+    @State private var showHistorySheet = false
     @State private var activeLegalDocument: LegalDocument?
     
     private let recordService = RecordService.shared
@@ -41,8 +42,15 @@ struct ContentViewButtons: View {
                 VStack(spacing: 0) {
                     // 顶部标题区域
                     VStack(spacing: 12) {
-                        HStack {
+                        HStack(spacing: 16) {
                             Spacer()
+                            Button(action: {
+                                showHistorySheet = true
+                            }) {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(.secondary)
+                            }
                             Button(action: {
                                 showAccountSheet = true
                             }) {
@@ -50,8 +58,8 @@ struct ContentViewButtons: View {
                                     .font(.system(size: 24))
                                     .foregroundColor(.secondary)
                             }
-                            .padding(.trailing, 32)
                         }
+                        .padding(.horizontal, 32)
                         .padding(.top, 20)
                         
                         Text("今天")
@@ -174,6 +182,10 @@ struct ContentViewButtons: View {
         }
         .onAppear {
             checkTodayRecord()
+        }
+        .sheet(isPresented: $showHistorySheet) {
+            HistoryView()
+                .environmentObject(userManager)
         }
         .sheet(isPresented: $showAccountSheet) {
             LegalCenterSheet(

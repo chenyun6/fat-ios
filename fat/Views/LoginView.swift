@@ -12,15 +12,19 @@ struct LoginView: View {
     @Environment(\.colorScheme) var colorScheme
     @State private var phone: String = ""
     @State private var code: String = ""
+    @State private var password: String = ""
     @State private var isCodeSent = false
+    @State private var loginMode: LoginMode = .sms  // sms=验证码, password=密码
     @State private var countdown = 0
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var activeLegalDocument: LegalDocument?
     @FocusState private var focusedField: Field?
-    
+
+    enum LoginMode { case sms, password }
+
     enum Field {
-        case phone, code
+        case phone, code, password
     }
     
     var body: some View {
@@ -74,14 +78,59 @@ struct LoginView: View {
                     .padding(.bottom, 60)
                     
                     // 极简输入区域
-                    VStack(spacing: 20) {
+                    VStack(spacing: 16) {
+                        // 登录模式切换
+                        HStack(spacing: 0) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    loginMode = .sms
+                                    isCodeSent = false
+                                    code = ""
+                                    password = ""
+                                    focusedField = .phone
+                                }
+                            } label: {
+                                Text("验证码登录")
+                                    .font(.system(size: 15, weight: loginMode == .sms ? .semibold : .regular))
+                                    .foregroundColor(loginMode == .sms ? .primary : .secondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(loginMode == .sms ? Color(.systemGray5).opacity(0.5) : Color.clear)
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    loginMode = .password
+                                    isCodeSent = false
+                                    code = ""
+                                    password = ""
+                                    focusedField = .phone
+                                }
+                            } label: {
+                                Text("密码登录")
+                                    .font(.system(size: 15, weight: loginMode == .password ? .semibold : .regular))
+                                    .foregroundColor(loginMode == .password ? .primary : .secondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(loginMode == .password ? Color(.systemGray5).opacity(0.5) : Color.clear)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .frame(maxWidth: 200)
+                        .background(
+                            Capsule()
+                                .fill(Color(.systemGray6).opacity(0.5))
+                        )
+                        .padding(.bottom, 4)
+
                         // 手机号输入
                         HStack(spacing: 12) {
                             Image(systemName: "phone.fill")
                                 .font(.system(size: 17, weight: .medium))
                                 .foregroundColor(.blue)
                                 .frame(width: 24)
-                            
+
                             TextField("手机号", text: $phone)
                                 .font(.system(size: 17, weight: .regular, design: .default))
                                 .foregroundColor(Color(.label))
@@ -99,35 +148,86 @@ struct LoginView: View {
                                 .fill(Color(.secondarySystemBackground))
                                 .shadow(color: colorScheme == .dark ? Color.clear : Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
                         )
-                        
-                        // 验证码输入（仅在发送后显示）
-                        if isCodeSent {
-                            HStack(spacing: 12) {
-                                Image(systemName: "lock.fill")
-                                    .font(.system(size: 17, weight: .medium))
-                                    .foregroundColor(.green)
-                                    .frame(width: 24)
-                                
-                                TextField("验证码", text: $code)
-                                    .font(.system(size: 17, weight: .regular, design: .default))
-                                    .foregroundColor(Color(.label))
-                                    .keyboardType(.numberPad)
-                                    .focused($focusedField, equals: .code)
-                                    .accentColor(.blue)
-                                    .onChange(of: code) {
-                                        code = String(code.prefix(6)).filter { $0.isNumber }
+
+                        // 验证码模式
+                        if loginMode == .sms {
+                            if isCodeSent {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 17, weight: .medium))
+                                        .foregroundColor(.green)
+                                        .frame(width: 24)
+
+                                    TextField("验证码", text: $code)
+                                        .font(.system(size: 17, weight: .regular, design: .default))
+                                        .foregroundColor(Color(.label))
+                                        .keyboardType(.numberPad)
+                                        .focused($focusedField, equals: .code)
+                                        .accentColor(.blue)
+                                        .onChange(of: code) {
+                                            code = String(code.prefix(6)).filter { $0.isNumber }
+                                        }
+
+                                    // 重新发送按钮
+                                    Button(action: {
+                                        sendCode()
+                                    }) {
+                                        Text(countdown > 0 ? "\(countdown)s" : "重发")
+                                            .font(.system(size: 15, weight: .medium, design: .default))
+                                            .foregroundColor(countdown > 0 ? .gray : .blue)
+                                            .frame(width: 50)
                                     }
-                                
-                                // 重新发送按钮
-                                Button(action: {
-                                    sendCode()
-                                }) {
-                                    Text(countdown > 0 ? "\(countdown)s" : "重发")
-                                        .font(.system(size: 15, weight: .medium, design: .default))
-                                        .foregroundColor(countdown > 0 ? .gray : .blue)
-                                        .frame(width: 50)
+                                    .disabled(countdown > 0)
                                 }
-                                .disabled(countdown > 0)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color(.secondarySystemBackground))
+                                        .shadow(color: colorScheme == .dark ? Color.clear : Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
+                                )
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                            }
+                        }
+
+                        // 密码模式
+                        if loginMode == .password {
+                            VStack(spacing: 12) {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "lock.fill")
+                                        .font(.system(size: 17, weight: .medium))
+                                        .foregroundColor(.green)
+                                        .frame(width: 24)
+
+                                    SecureField("密码", text: $password)
+                                        .font(.system(size: 17, weight: .regular, design: .default))
+                                        .foregroundColor(Color(.label))
+                                        .focused($focusedField, equals: .password)
+                                        .accentColor(.blue)
+                                        .onChange(of: password) {
+                                            password = String(password.prefix(20))
+                                        }
+                                }
+
+                                // 密码强度规则（输入时实时显示）
+                                if !password.isEmpty {
+                                    let strength = PasswordStrength.evaluate(password)
+                                    VStack(spacing: 5) {
+                                        ForEach(strength.rules) { rule in
+                                            HStack(spacing: 6) {
+                                                Image(systemName: rule.isMet ? "checkmark.circle.fill" : "circle")
+                                                    .font(.system(size: 12))
+                                                    .foregroundColor(rule.isMet ? .green : Color(.systemGray3))
+                                                Text(rule.label)
+                                                    .font(.system(size: 11))
+                                                    .foregroundColor(rule.isMet ? .secondary : Color(.tertiaryLabel))
+                                                Spacer()
+                                            }
+                                        }
+                                    }
+                                    .padding(.horizontal, 4)
+                                    .transition(.opacity)
+                                }
                             }
                             .padding(.horizontal, 20)
                             .padding(.vertical, 16)
@@ -157,7 +257,9 @@ struct LoginView: View {
                         
                         // 主按钮 - 青春活力的渐变色
                         Button(action: {
-                            if isCodeSent {
+                            if loginMode == .password {
+                                loginWithPassword()
+                            } else if isCodeSent {
                                 login()
                             } else {
                                 sendCode()
@@ -168,7 +270,7 @@ struct LoginView: View {
                                     ProgressView()
                                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                 } else {
-                                    Text(isCodeSent ? "登录" : "获取验证码")
+                                    Text(buttonTitle)
                                         .font(.system(size: 17, weight: .semibold, design: .default))
                                 }
                             }
@@ -231,11 +333,25 @@ struct LoginView: View {
     
     // MARK: - 是否可以继续
     private var canProceed: Bool {
+        if loginMode == .password {
+            return phone.count == 11 && !password.isEmpty
+        }
         if isCodeSent {
             return phone.count == 11 && code.count == 6
         } else {
             return phone.count == 11
         }
+    }
+
+    // MARK: - 按钮文案
+    private var buttonTitle: String {
+        if loginMode == .password {
+            return "登录"
+        }
+        if isCodeSent {
+            return "登录"
+        }
+        return "获取验证码"
     }
     
     // MARK: - 发送验证码
@@ -318,6 +434,60 @@ struct LoginView: View {
         }
     }
     
+    // MARK: - 密码登录
+    private func loginWithPassword() {
+        guard phone.count == 11 else {
+            errorMessage = "请填写完整信息"
+            return
+        }
+        guard !password.isEmpty else {
+            errorMessage = "请输入密码"
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+
+        Task {
+            do {
+                let loginResponse = try await NetworkService.shared.loginWithPassword(phone: phone, password: password)
+
+                await MainActor.run {
+                    userManager.saveUserInfo(
+                        userId: loginResponse.userId,
+                        phone: phone,
+                        accessToken: loginResponse.accessToken,
+                        refreshToken: loginResponse.refreshToken,
+                        expireTime: loginResponse.expireTime
+                    )
+                    isLoading = false
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    if let networkError = error as? NetworkError {
+                        switch networkError {
+                        case .apiError(let message):
+                            errorMessage = message.isEmpty ? "登录失败，请稍后重试" : message
+                        case .httpError(let code):
+                            if code == 401 {
+                                errorMessage = "密码错误或已过期"
+                            } else if code >= 500 {
+                                errorMessage = "服务器错误，请稍后重试"
+                            } else {
+                                errorMessage = "网络错误，请稍后重试"
+                            }
+                        default:
+                            errorMessage = "登录失败，请稍后重试"
+                        }
+                    } else {
+                        errorMessage = "登录失败：\(error.localizedDescription)"
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - 登录
     private func login() {
         guard phone.count == 11 && code.count == 6 else {
